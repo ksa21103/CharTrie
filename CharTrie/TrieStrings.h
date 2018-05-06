@@ -24,7 +24,7 @@ namespace TrieStrings
 
         virtual const TCharType* getStr()           const = 0;
         virtual bool             empty()            const = 0;
-        virtual const size_t     length()           const = 0;
+        virtual size_t           length()           const = 0;
         virtual TCharType        at(size_t index)   const = 0;
     };
 
@@ -35,6 +35,7 @@ namespace TrieStrings
     public:
 
         StringOfCharsZeroEnd(const TCharType* zeroEndBuf = nullptr);
+        StringOfCharsZeroEnd(const StringOfCharsZeroEnd& other);
         StringOfCharsZeroEnd(StringOfCharsZeroEnd&& other);
         virtual ~StringOfCharsZeroEnd();
 
@@ -49,7 +50,7 @@ namespace TrieStrings
 
         virtual const TCharType* getStr()           const         override;
         virtual bool             empty()            const         override;
-        virtual const size_t     length()           const         override;
+        virtual size_t           length()           const         override;
         virtual TCharType        at(size_t index)   const         override;
 
     private:
@@ -69,6 +70,7 @@ namespace TrieStrings
 
         StringOfCharsFixedLen();
         StringOfCharsFixedLen(const TCharType* buf, size_t charsCount);
+        StringOfCharsFixedLen(const StringOfCharsFixedLen& other);
         StringOfCharsFixedLen(StringOfCharsFixedLen&& other);
         virtual ~StringOfCharsFixedLen();
 
@@ -83,7 +85,7 @@ namespace TrieStrings
 
         virtual const TCharType* getStr()           const         override;
         virtual bool             empty()            const         override;
-        virtual const size_t     length()           const         override;
+        virtual size_t           length()           const         override;
         virtual TCharType        at(size_t index)   const         override;
 
     private:
@@ -119,6 +121,13 @@ namespace TrieStrings
     StringOfCharsZeroEnd<TCharType>::StringOfCharsZeroEnd(const TCharType* zeroEndBuf)
     {
         intAssign(zeroEndBuf, zeroEndBuf ? GetStrLen(zeroEndBuf) : 0);
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType>
+    StringOfCharsZeroEnd<TCharType>::StringOfCharsZeroEnd(const StringOfCharsZeroEnd& other)
+    {
+        intAssign(other.getStr(), other.length());
     }
 
     //------------------------------------------------------------------------//
@@ -214,7 +223,7 @@ namespace TrieStrings
     //------------------------------------------------------------------------//
     template<typename TCharType>
     inline
-    const size_t
+    size_t
     StringOfCharsZeroEnd<TCharType>::length() const
     {
         return m_buf.size() - 1;
@@ -250,6 +259,11 @@ namespace TrieStrings
     StringOfCharsFixedLen<TCharType>::StringOfCharsFixedLen(const TCharType* buf, size_t charsCount)
     {
         intAssign(buf, charsCount);
+    }
+
+    template<typename TCharType>
+    inline StringOfCharsFixedLen<TCharType>::StringOfCharsFixedLen(const StringOfCharsFixedLen & other)
+    {
     }
 
     //------------------------------------------------------------------------//
@@ -343,7 +357,7 @@ namespace TrieStrings
     //------------------------------------------------------------------------//
     template<typename TCharType>
     inline
-    const size_t
+    size_t
     StringOfCharsFixedLen<TCharType>::length() const
     {
         return m_buf.size();

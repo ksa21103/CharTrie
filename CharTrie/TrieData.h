@@ -73,10 +73,20 @@ namespace Trie
 
         // Получить указатель на следующий элемент для указанного символа
         /**
-         * Если текущий элемент обладает указанным символом, будет возвращен он
-         * Если подходящий элемент не найден, но дано разрешение на создание, он будет создан
+         * Возращает элемент в цепочке элементов (братьев), обладающих указанным символом
+         * Поиск начинается с текущего элемента
          */
-        node_type*          getBrother(TCharType keyChar, bool bCreateIfNotExist, bool& bCreated);
+        node_type*          getBrotherSimple(TCharType keyChar);
+        const node_type*    getBrotherSimple(TCharType keyChar) const;
+
+        // Получить указатель на следующий элемент для указанного символа
+        /**
+         * Возращает элемент в цепочке элементов (братьев), обладающих указанным символом
+         * Поиск начинается с текущего элемента
+         * Если подходящий элемент не найден - он будет создан
+         * и размещен в цепочке элементов (братьев) в нужном месте
+         */
+        node_type*          getBrotherCreate(TCharType keyChar, bool& bCreated);
 
         // Изьять указатель на следующий элемент для указанного символа
         /**
@@ -90,88 +100,20 @@ namespace Trie
 
         // Установить/получить указатель на дочерний элемент дерева
         void                setChild(node_type* child);
-        node_type*          getChild() const;
-        node_type*          getChild(bool bCreateIfNotExist, bool& bCreated);
+        node_type*          getChildSimple() const;
+        node_type*          getChildCreate(bool& bCreated);
 
     private:
 
-        bool                isLess(TCharType ch1, TCharType ch2);
-        bool                isEqual(TCharType ch1, TCharType ch2);
+        bool                isLess(TCharType ch1, TCharType ch2) const;
+        bool                isEqual(TCharType ch1, TCharType ch2) const;
 
     private:
 
         TCharType          m_keyChar = 0;
         TValueType         m_value   = get_undefined_value<TValueType>();
-        node_type*         m_next    = nullptr;
-        node_type*         m_child   = nullptr;
-    };
-
-    ////////////////////////////////////////////////////////////////////////////
-    //
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    class const_iterator : public std::iterator<std::forward_iterator_tag, TValueType>
-    {
-    public:
-
-        using string_type = TrieStrings::StringOfCharsZeroEnd<TCharType>;
-        using node_type   = Node<TCharType, TValueType, KeyCharLess>;
-
-        const_iterator();
-        const_iterator(const std::vector<node_type*> nodes);
-        const_iterator(const const_iterator<TCharType, TValueType, KeyCharLess>& other);
-        const_iterator(const_iterator<TCharType, TValueType, KeyCharLess>&& other);
-
-        const node_type* operator->() const;
-        const node_type* operator*() const;
-
-        const string_type&  getString() const;
-        const TValueType&   getValue() const;
-
-        const_iterator<TCharType, TValueType, KeyCharLess>& operator=(const const_iterator<TCharType, TValueType, KeyCharLess>& other);
-        const_iterator<TCharType, TValueType, KeyCharLess>& operator=(const_iterator<TCharType, TValueType, KeyCharLess>&& other);
-        const_iterator<TCharType, TValueType, KeyCharLess>& operator++();
-        bool                                            operator==(const const_iterator<TCharType, TValueType, KeyCharLess>& other) const;
-        bool                                            operator!=(const const_iterator<TCharType, TValueType, KeyCharLess>& other) const;
-
-	protected:
-
-		struct TrieLevelInfo
-		{
-            TrieLevelInfo(node_type* _node, bool _bToChild)
-                : node(_node), bToChild(_bToChild)
-            { }
-
-            node_type* node     = nullptr;  // Указатель на узел цифрового дерева
-            bool       bToChild = false;    // Признак того, что при движении итератора вперед нужно заходить в дочерние элементы
-		};
-        using TrieLevelInfoVector = std::vector<TrieLevelInfo>;
-
-        TrieLevelInfoVector m_path;
-        mutable string_type m_string;
-    };
-
-    ////////////////////////////////////////////////////////////////////////////
-    //
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    class iterator : public const_iterator<TCharType, TValueType, KeyCharLess>
-    {
-    public:
-
-        using node_type = Node<TCharType, TValueType, KeyCharLess>;
-
-        iterator();
-        iterator(const std::vector<node_type*>& nodes);
-        iterator(const iterator& other);
-        iterator(iterator&& other);
-
-        node_type* operator->() const;
-        node_type* operator*() const;
-
-        iterator<TCharType, TValueType, KeyCharLess>& operator=(const iterator& other);
-        iterator<TCharType, TValueType, KeyCharLess>& operator=(iterator&& other);
-
-        bool operator==(const iterator& other) const;
-        bool operator!=(const iterator& other) const;
+        node_type*         m_pNext   = nullptr;
+        node_type*         m_pChild  = nullptr;
     };
 
     ////////////////////////////////////////////////////////////////////////////
@@ -186,9 +128,13 @@ namespace Trie
     {
     public:
 
-        using string_type         = TrieStrings::StringOfChars<typename TCharType>;
-        using iterator_type       = iterator<typename TCharType, typename TValueType, typename KeyCharLess>;
-        using const_iterator_type = const_iterator<typename TCharType, typename TValueType, typename KeyCharLess>;
+        using string_type               = TrieStrings::StringOfChars<typename TCharType>;
+
+        using node_type                 = Node<TCharType, TValueType, KeyCharLess>;
+        using nodes_vector_type         = std::vector<node_type*>;
+
+        using iterator_type             = iterator<typename TCharType, typename TValueType, typename KeyCharLess>;
+        using const_iterator_type       = const_iterator<typename TCharType, typename TValueType, typename KeyCharLess>;
 
         Trie();
         ~Trie();
@@ -211,7 +157,8 @@ namespace Trie
          * В случае, если слово найдено, возвращается значение.
          * Если слово не найдено, возвращается -1 (можно сделать любым другим способом)
          */
-        TValueType find(const TrieStrings::StringOfChars<TCharType>& key);
+        iterator_type       find(const TrieStrings::StringOfChars<TCharType>& key);
+        const_iterator_type find(const TrieStrings::StringOfChars<TCharType>& key) const;
 
         // Также, необходимо предоставить пример перебора всех значений для всех
         // слов больше заданного.
@@ -220,7 +167,7 @@ namespace Trie
         //      C каждым словом связано число.
         //      Нужно получить все числа для слов больше бета - т.е. найти числа,
         //      связанные со словами гамма, дельта, эпсилон. 
-        const_iterator_type lower_bound(const TrieStrings::StringOfChars<TCharType>& key);
+        const_iterator_type lower_bound(const TrieStrings::StringOfChars<TCharType>& key) const;
 
         const_iterator_type cbegin() const;
         const_iterator_type cend()   const;
@@ -230,26 +177,136 @@ namespace Trie
         iterator_type       begin() const;
         iterator_type       end()   const;
 
-        using node_type = Node<TCharType, TValueType, KeyCharLess>;
-
         // Создание и получение корневого узла
-        node_type*                          intGetRoot();
+        node_type*                          intGetRoot() const;
 
         // Удаление корневого узла
         void                                intResetRoot();
 
         // Получить узел для указанного значения ключа
-        iterator_type                       intGetNode(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength, bool bCreateIfNotExist);
-        void                                intGetNode(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength,
-                                                       std::vector<node_type*>& path,
-                                                       bool bCreateIfNotExist);
+        iterator_type                       intGetNodeSimple(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength);
+        const_iterator_type                 intGetNodeSimple(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength) const;
+        iterator_type                       intGetNodeCreate(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength);
+
+        // Получить путь к узлу дереву по ключу
+        nodes_vector_type                   intGetNodePathSimple(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength) const;
+
+        // Получить путь к узлу дереву по ключу с созданием недостающих узлов
+        nodes_vector_type                   intGetNodePathCreate(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength);
 
     private:
 
-        node_type* m_rootNode = nullptr;
+        // Корень цифрового дерева
+        node_type* m_rootNode = Node<TCharType, TValueType, KeyCharLess>::create();
     };
-}
 
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    class base_interator : public std::iterator<std::forward_iterator_tag, Node<typename TCharType, typename TValueType, typename KeyCharLess>* >
+    {
+    public:
+
+        using this_type         = base_interator<TCharType, TValueType, KeyCharLess>;
+
+        using string_type       = TrieStrings::StringOfCharsZeroEnd<TCharType>;
+        using node_type         = Node<typename TCharType, typename TValueType, typename KeyCharLess>;
+        using nodes_vector_type = std::vector<node_type*>;
+
+        base_interator();
+        base_interator(const nodes_vector_type& nodes);
+        base_interator(const this_type& other);
+        base_interator(this_type&& other);
+
+        bool                operator==  (const this_type& other) const;
+        bool                operator!=  (const this_type& other) const;
+        node_type*          operator->  ()                       const;
+        node_type*          operator*   ()                       const;
+
+        this_type&          operator=   (const this_type& other);
+        this_type&          operator=   (this_type&& other);
+        this_type&          operator++  ();
+
+        // Получение полного ключ, которому соответствует узел
+        const string_type&  getString() const;
+
+	protected:
+
+		struct TrieLevelInfo
+		{
+            TrieLevelInfo(node_type* _pNode, bool _bToChild)
+                : pNode(_pNode), bToChild(_bToChild)
+            { }
+
+            node_type* pNode   = nullptr;  // Указатель на узел цифрового дерева
+            bool       bToChild = false;    // Признак того, что при движении итератора вперед нужно заходить в дочерние элементы
+		};
+        using TrieLevelInfoVector = std::vector<TrieLevelInfo>;
+
+        TrieLevelInfoVector m_path;         // Путь к узлу цифрового дерева, на который указывает итератор
+        mutable string_type m_string;       // Ключ, которому соответствует узел
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    class const_iterator : public base_interator<TCharType, TValueType, KeyCharLess>
+    {
+        using base_iterator_type = base_interator<TCharType, TValueType, KeyCharLess>;
+    public:
+
+        using this_type         = const_iterator<TCharType, TValueType, KeyCharLess>;
+
+        using base_type         = typename base_iterator_type::this_type;
+        using node_type         = typename base_iterator_type::node_type;
+        using nodes_vector_type = typename base_iterator_type::nodes_vector_type;
+
+        const_iterator();
+        const_iterator(const nodes_vector_type& nodes);
+        const_iterator(const this_type& other);
+        const_iterator(this_type&& other);
+
+        bool                operator==  (const this_type& other) const;
+        bool                operator!=  (const this_type& other) const;
+        node_type*          operator->  ()                       const;
+        node_type*          operator*   ()                       const;
+
+        this_type&          operator=   (const this_type& other);
+        this_type&          operator=   (this_type&& other);
+        this_type&          operator++  ();
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    class iterator : public const_iterator<TCharType, TValueType, KeyCharLess>
+    {
+        using base_iterator_type = const_iterator<TCharType, TValueType, KeyCharLess>;
+    public:
+
+        using this_type         = iterator<TCharType, TValueType, KeyCharLess>;
+
+        using base_type         = typename base_iterator_type::this_type;
+        using node_type         = typename base_iterator_type::node_type;
+        using nodes_vector_type = typename base_iterator_type::nodes_vector_type;
+
+        iterator();
+        iterator(const nodes_vector_type& nodes);
+        iterator(const this_type& other);
+        iterator(this_type&& other);
+
+        bool                operator==  (const this_type& other) const;
+        bool                operator!=  (const this_type& other) const;
+        node_type*          operator->  ()                       const;
+        node_type*          operator*   ()                       const;
+
+        this_type&          operator=   (const this_type& other);
+        this_type&          operator=   (this_type&& other);
+        this_type&          operator++  ();
+    }; 
+}   // namespace Trie
+
+// Имплементация методов узла цифрового дерева
 namespace Trie
 {
     //------------------------------------------------------------------------//
@@ -283,7 +340,7 @@ namespace Trie
     {
         node_type* newNode = create(node->getKeyChar(), node->getValue());
         newNode->setNext(node->getNext());
-        newNode->setChild(node->getChild());
+        newNode->setChild(node->getChildSimple());
 
         return newNode;
     }
@@ -297,15 +354,15 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     Node<TCharType, TValueType, KeyCharLess>::Node(TCharType keyChar)
-        : m_keyChar(keyChar)
+        : m_keyChar (keyChar)
     {
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     Node<TCharType, TValueType, KeyCharLess>::Node(TCharType keyChar, TValueType value)
-        : m_keyChar(keyChar),
-          m_value(value)
+        : m_keyChar (keyChar),
+          m_value   (value)
     {
     }
 
@@ -313,11 +370,11 @@ namespace Trie
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     Node<TCharType, TValueType, KeyCharLess>::~Node()
     {
-        delete m_child;
-        m_child = nullptr;
+        delete m_pChild;
+        m_pChild = nullptr;
 
-        delete m_next;
-        m_next = nullptr;
+        delete m_pNext;
+        m_pNext = nullptr;
     }
 
     //------------------------------------------------------------------------//
@@ -367,7 +424,7 @@ namespace Trie
     void
     Node<TCharType, TValueType, KeyCharLess>::setNext(typename Node<TCharType, TValueType, KeyCharLess>::node_type* next)
     {
-        m_next = next;
+        m_pNext = next;
     }
 
     //------------------------------------------------------------------------//
@@ -376,13 +433,91 @@ namespace Trie
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
     Node<TCharType, TValueType, KeyCharLess>::getNext() const
     {
-        return m_next;
+        return m_pNext;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
-    Node<TCharType, TValueType, KeyCharLess>::getBrother(TCharType keyChar, bool bCreateIfNotExist, bool& bCreated)
+    Node<TCharType, TValueType, KeyCharLess>::getBrotherSimple(TCharType keyChar)
+    {
+        node_type* destNode = nullptr;
+
+        if (isLess(keyChar, getKeyChar()))
+        {
+            // Символ меньше символа в текущем элементе - нужного элемента нет
+        }
+
+        // Если символ из ключа хранится в текущем элементе - вернем текущий элемент
+        else if (isEqual(keyChar, getKeyChar()))
+        {
+            return this;
+        }
+        else
+        {
+            node_type* nodePrev = this;
+            node_type* node = getNext();
+            while (node && isLess(node->getKeyChar(), keyChar))
+            {
+                nodePrev = node;
+                node = node->getNext();
+            }
+
+            if (node)
+            {
+                if (isEqual(node->getKeyChar(), keyChar))
+                {
+                    destNode = node;
+                }
+            }
+        }
+
+        return destNode;
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const typename Node<TCharType, TValueType, KeyCharLess>::node_type*
+    Node<TCharType, TValueType, KeyCharLess>::getBrotherSimple(TCharType keyChar) const
+    {
+        const node_type* destNode = nullptr;
+
+        if (isLess(keyChar, getKeyChar()))
+        {
+            // Символ меньше символа в текущем элементе - нужного элемента нет
+        }
+
+        // Если символ из ключа хранится в текущем элементе - вернем текущий элемент
+        else if (isEqual(keyChar, getKeyChar()))
+        {
+            return this;
+        }
+        else
+        {
+            const node_type* nodePrev = this;
+            const node_type* node = getNext();
+            while (node && isLess(node->getKeyChar(), keyChar))
+            {
+                nodePrev = node;
+                node = node->getNext();
+            }
+
+            if (node)
+            {
+                if (isEqual(node->getKeyChar(), keyChar))
+                {
+                    destNode = node;
+                }
+            }
+        }
+
+        return destNode;
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Node<TCharType, TValueType, KeyCharLess>::node_type*
+    Node<TCharType, TValueType, KeyCharLess>::getBrotherCreate(TCharType keyChar, bool& bCreated)
     {
         node_type* destNode = nullptr;
         bCreated = false;
@@ -422,7 +557,7 @@ namespace Trie
                 {
                     destNode = node;
                 }
-                else if (bCreateIfNotExist)
+                else
                 {
                     node_type* newNode = Node::create(keyChar);
                     node_type* oldNext = nodePrev->getNext();
@@ -436,15 +571,12 @@ namespace Trie
             }
             else
             {
-                if (bCreateIfNotExist)
-                {
-                    node_type* newNode = Node::create(keyChar);
-                    nodePrev->setNext(newNode);
+                node_type* newNode = Node::create(keyChar);
+                nodePrev->setNext(newNode);
 
-                    destNode = newNode;
+                destNode = newNode;
 
-                    bCreated = true;
-                }
+                bCreated = true;
             }
         }
 
@@ -454,29 +586,29 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
-    Node<TCharType, TValueType, KeyCharLess>::removeBrother(TCharType keyChar)
+        Node<TCharType, TValueType, KeyCharLess>::removeBrother(TCharType keyChar)
     {
         node_type* result = nullptr;
 
-        if (m_child && isEqual(m_child->getKeyChar(), keyChar))
+        if (m_pChild && isEqual(m_pChild->getKeyChar(), keyChar))
         {
-            result = m_child;
-            m_child = m_next;
-            m_next = m_next ? m_next->getNext() : nullptr;
+            result = m_pChild;
+            m_pChild = m_pNext;
+            m_pNext = m_pNext ? m_pNext->getNext() : nullptr;
         }
         else
         {
             node_type* nodePrev = nullptr;
-            for (node_type* node = m_next; node != nullptr; node = node->getNext())
+            for (node_type* node = m_pNext; node != nullptr; node = node->getNext())
             {
                 if (isEqual(node->getKeyChar(), keyChar))
                 {
                     result = node;
-                
+
                     if (nodePrev)
                         nodePrev->setNext(result->getNext());
                     else
-                        m_next = result->getNext();
+                        m_pNext = result->getNext();
 
                     result->setNext(nullptr);
 
@@ -492,45 +624,42 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    inline
     void
     Node<TCharType, TValueType, KeyCharLess>::setChild(typename Node<TCharType, TValueType, KeyCharLess>::node_type* child)
     {
-        m_child = child;
+        m_pChild = child;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
-     Node<TCharType, TValueType, KeyCharLess>::getChild() const
+    Node<TCharType, TValueType, KeyCharLess>::getChildSimple() const
     {
-        return m_child;
+        return m_pChild;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     inline
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
-    Node<TCharType, TValueType, KeyCharLess>::getChild(bool bCreateIfNotExist, bool& bCreated)
+    Node<TCharType, TValueType, KeyCharLess>::getChildCreate(bool& bCreated)
     {
-        if (!m_child && bCreateIfNotExist)
+        bCreated = false;
+
+        if (!m_pChild)
         {
-            m_child = Node::create();
+            m_pChild = Node::create();
             bCreated = true;
         }
-        else
-        {
-            bCreated = false;
-        }
 
-        return m_child;
+        return m_pChild;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     inline
     bool
-    Node<TCharType, TValueType, KeyCharLess>::isLess(TCharType ch1, TCharType ch2)
+    Node<TCharType, TValueType, KeyCharLess>::isLess(TCharType ch1, TCharType ch2) const
     {
         return ch1 == ch2 ? false : KeyCharLess()(ch1, ch2);
     }
@@ -539,12 +668,17 @@ namespace Trie
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     inline
     bool
-    Node<TCharType, TValueType, KeyCharLess>::isEqual(TCharType ch1, TCharType ch2)
+    Node<TCharType, TValueType, KeyCharLess>::isEqual(TCharType ch1, TCharType ch2) const
     {
         KeyCharLess less;
         return ch1 == ch2 ? true : (!less(ch1, ch2) && !less(ch2, ch1));
     }
 
+}   // namespace Trie (Имплементация методов узла цифрового дерева)
+
+// Имплементация методов цифрового дерева
+namespace Trie
+{
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     Trie<TCharType, TValueType, KeyCharLess>::Trie()
@@ -565,7 +699,7 @@ namespace Trie
         const string_type& key, TValueType value)
     {
         // Получим (и создадим недостающие элементы при необходимости) узел для указанного пути
-        iterator_type it = intGetNode(key, key.length(), true);
+        iterator_type it = intGetNodeCreate(key, key.length());
         assert(it != end());
 
         Node<TCharType, TValueType, KeyCharLess>* result = *it;
@@ -593,7 +727,7 @@ namespace Trie
         else
         {
             const size_t keyLenght = key.length();
-            iterator_type it = intGetNode(key, keyLenght, false);
+            iterator_type it = intGetNodeSimple(key, keyLenght);
             if (it != end())
             {
                 if (node_type* result = (*it)->removeBrother(key.at(keyLenght - 1)))
@@ -609,23 +743,26 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    TValueType
+    typename Trie<TCharType, TValueType, KeyCharLess>::iterator_type
     Trie<TCharType, TValueType, KeyCharLess>::find(const TrieStrings::StringOfChars<TCharType>& key)
     {
-        // Получим узел для указанного пути
-        const_iterator_type it = intGetNode(key, key.length(), false);
-        if (it != cend())
-            return it->getValue();
-
-        return get_undefined_value<TValueType>();
+        return intGetNodeSimple(key, key.length());
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Trie<TCharType, TValueType, KeyCharLess>::const_iterator_type
-    Trie<TCharType, TValueType, KeyCharLess>::lower_bound(const TrieStrings::StringOfChars<TCharType>& key)
+    Trie<TCharType, TValueType, KeyCharLess>::find(const TrieStrings::StringOfChars<TCharType>& key) const
     {
-        auto it = intGetNode(key, key.length(), false);
+        return intGetNodeSimple(key, key.length());
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Trie<TCharType, TValueType, KeyCharLess>::const_iterator_type
+    Trie<TCharType, TValueType, KeyCharLess>::lower_bound(const TrieStrings::StringOfChars<TCharType>& key) const
+    {
+        auto it = intGetNodeSimple(key, key.length());
         if (it != end())
         {
             ++it;
@@ -641,7 +778,7 @@ namespace Trie
     {
         const_iterator_type it;
 
-        if (node_type* firstChild = m_rootNode->getChild())
+        if (node_type* firstChild = intGetRoot()->getChildSimple())
         {
             it = const_iterator_type({ firstChild });
             ++it;
@@ -665,7 +802,7 @@ namespace Trie
     {
         iterator_type it;
 
-        if (node_type* firstChild = m_rootNode->getChild())
+        if (node_type* firstChild = intGetRoot()->getChildSimple())
         {
             it = iterator_type({ firstChild, true });
             ++it;
@@ -685,11 +822,8 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Trie<TCharType, TValueType, KeyCharLess>::node_type*
-    Trie<TCharType, TValueType, KeyCharLess>::intGetRoot()
+    Trie<TCharType, TValueType, KeyCharLess>::intGetRoot() const
     {
-        if (!m_rootNode)
-            m_rootNode = Node<TCharType, TValueType, KeyCharLess>::create();
-
         return m_rootNode;
     }
 
@@ -705,30 +839,73 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Trie<TCharType, TValueType, KeyCharLess>::iterator_type
-    Trie<TCharType, TValueType, KeyCharLess>::intGetNode(
-        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength, bool bCreateIfNotExist)
+    Trie<TCharType, TValueType, KeyCharLess>::intGetNodeCreate(
+        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength)
     {
-        std::vector<node_type*> path;
-        intGetNode(key, keyLength, path, bCreateIfNotExist);
-
-        if (path.empty())
-            return end();
-
-        return iterator_type(path);
+        return iterator_type(intGetNodePathCreate(key, keyLength));
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    void
-    Trie<TCharType, TValueType, KeyCharLess>::intGetNode(
-        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength,
-        std::vector<node_type*>& path,
-        bool bCreateIfNotExist)
+    typename Trie<TCharType, TValueType, KeyCharLess>::iterator_type
+    Trie<TCharType, TValueType, KeyCharLess>::intGetNodeSimple(
+        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength)
     {
-        Node<TCharType, TValueType, KeyCharLess>* currentNode = intGetRoot();
+        return iterator_type(intGetNodePathSimple(key, keyLength));
+    }
 
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Trie<TCharType, TValueType, KeyCharLess>::const_iterator_type
+    Trie<TCharType, TValueType, KeyCharLess>::intGetNodeSimple(
+        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength) const
+    {
+        return const_iterator_type(intGetNodePathSimple(key, keyLength));
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Trie<TCharType, TValueType, KeyCharLess>::nodes_vector_type
+    Trie<TCharType, TValueType, KeyCharLess>::intGetNodePathSimple(
+        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength) const
+    {
+        nodes_vector_type path;
         path.reserve(keyLength);
 
+        node_type* currentNode = intGetRoot();
+        for (size_t keyCharIndex = 0; keyCharIndex < keyLength; ++keyCharIndex)
+        {
+            const TCharType keyChar = key.at(keyCharIndex);
+
+            // Переходим на вложенный уровень
+            currentNode = currentNode->getChildSimple();
+            if (!currentNode)
+                break;
+
+            // Получим на вложенном уровне элемент для текущего символа ключа
+            currentNode = currentNode->getBrotherSimple(keyChar);
+            if (!currentNode)
+                break;
+
+            path.push_back(currentNode);
+        }
+
+        if (!currentNode)
+            path.clear();
+
+        return path;
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Trie<TCharType, TValueType, KeyCharLess>::nodes_vector_type
+    Trie<TCharType, TValueType, KeyCharLess>::intGetNodePathCreate(
+        const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength)
+    {
+        nodes_vector_type path;
+        path.reserve(keyLength);
+
+        Node<TCharType, TValueType, KeyCharLess>* currentNode = intGetRoot();
         for (size_t keyCharIndex = 0; keyCharIndex < keyLength; ++keyCharIndex)
         {
             const TCharType keyChar = key.at(keyCharIndex);
@@ -736,7 +913,7 @@ namespace Trie
             bool bCreated(false);
 
             // Переходим на вложенный уровень
-            currentNode = currentNode->getChild(bCreateIfNotExist, bCreated);
+            currentNode = currentNode->getChildCreate(bCreated);
             if (!currentNode)
                 break;
 
@@ -744,7 +921,7 @@ namespace Trie
             if (!bCreated)
             {
                 // Создаем на вложенном уровне элемент для текущего символа ключа
-                currentNode = currentNode->getBrother(keyChar, bCreateIfNotExist, bCreated);
+                currentNode = currentNode->getBrotherCreate(keyChar, bCreated);
                 if (!currentNode)
                     break;
             }
@@ -760,17 +937,25 @@ namespace Trie
 
         if (!currentNode)
             path.clear();
+
+        return path;
     }
 
+}   // namespace Trie (Имплементация методов цифрового дерева)
+
+// Имплементация итераторов цифрового дерева
+namespace Trie
+{
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator()
+    base_interator<TCharType, TValueType, KeyCharLess>::base_interator()
     {
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(const std::vector<node_type*> nodes)
+    base_interator<TCharType, TValueType, KeyCharLess>::base_interator(
+        const nodes_vector_type& nodes)
     {
         if (!nodes.empty())
         {
@@ -789,40 +974,40 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(
-        const const_iterator<TCharType, TValueType, KeyCharLess>& other)
-        : m_path(other.m_path)
+    base_interator<TCharType, TValueType, KeyCharLess>::base_interator(const this_type& other)
+        : m_path    (other.m_path),
+          m_string  (other.m_string)
     {
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(
-        const_iterator<TCharType, TValueType, KeyCharLess>&& other)
-        : m_path(std::move(other.m_path))
+    base_interator<TCharType, TValueType, KeyCharLess>::base_interator(this_type&& other)
+        : m_path    (std::move(other.m_path)),
+          m_string  (std::move(other.m_string))
     {
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const typename const_iterator<TCharType, TValueType, KeyCharLess>::node_type*
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator->() const
+    typename base_interator<TCharType, TValueType, KeyCharLess>::node_type*
+    base_interator<TCharType, TValueType, KeyCharLess>::operator->() const
     {
-        return m_path.back().node;
+        return m_path.back().pNode;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const typename const_iterator<TCharType, TValueType, KeyCharLess>::node_type*
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator*() const
+    typename base_interator<TCharType, TValueType, KeyCharLess>::node_type*
+    base_interator<TCharType, TValueType, KeyCharLess>::operator*() const
     {
-        return m_path.back().node;
+        return m_path.back().pNode;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    typename const const_iterator<TCharType, TValueType, KeyCharLess>::string_type&
-    const_iterator<TCharType, TValueType, KeyCharLess>::getString() const
+    const typename base_interator<TCharType, TValueType, KeyCharLess>::string_type&
+    base_interator<TCharType, TValueType, KeyCharLess>::getString() const
     {
         if (m_string.empty() && !m_path.empty())
         {
@@ -830,10 +1015,7 @@ namespace Trie
 
             for (const TrieLevelInfo& item : m_path)
             {
-                // Проверим, что код символа отличен от нуля, т.к. в пути
-                // первым элементом идет корень, в котором код символа есть ноль
-                if (TCharType ch = item.node->getKeyChar())
-                    m_string.appendChar(ch);
+                m_string.appendChar(item.pNode->getKeyChar());
             }
         }
 
@@ -842,41 +1024,35 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const TValueType&
-    const_iterator<TCharType, TValueType, KeyCharLess>::getValue() const
+    base_interator<TCharType, TValueType, KeyCharLess>&
+    base_interator<TCharType, TValueType, KeyCharLess>::operator=(const this_type& other)
     {
-        const TrieLevelInfo& levelInfo = m_path.back();
-        return levelInfo.node->getValue();
-    }
-
-    //------------------------------------------------------------------------//
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>&
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator=(
-        const const_iterator<TCharType, TValueType, KeyCharLess>& other)
-    {
-        m_path = other.m_path;
+        m_path   = other.m_path;
+        m_string = other.m_string;
 
         return *this;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>&
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator=(
-        const_iterator<TCharType, TValueType, KeyCharLess>&& other)
+    base_interator<TCharType, TValueType, KeyCharLess>&
+    base_interator<TCharType, TValueType, KeyCharLess>::operator=(this_type&& other)
     {
-        m_path = std::move(other.m_path);
+        m_path   = std::move(other.m_path);
+        m_string = std::move(other.m_string);
+
         return *this;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>&
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator++()
+    typename base_interator<TCharType, TValueType, KeyCharLess>::this_type&
+    base_interator<TCharType, TValueType, KeyCharLess>::operator++()
     {
         if (m_path.empty())
             return *this;
+
+        bool bClearStr(false);
 
         do
         {
@@ -888,32 +1064,37 @@ namespace Trie
                 {
                     levelInfo.bToChild = false;
 
-                    if (node_type* node = levelInfo.node->getChild())
+                    if (node_type* node = levelInfo.pNode->getChildSimple())
                     {
                         // Создадим новый элемент пути с признаком захода в дочерние элементы
                         m_path.push_back(TrieLevelInfo(node, true));
-                        m_string.clear();
+                        bClearStr = true;
                         break;
                     }
                 }
 
-                if (node_type* node = levelInfo.node->getNext())
+                if (node_type* node = levelInfo.pNode->getNext())
                 {
                     m_path.pop_back();
                     // Создадим новый элемент пути с признаком захода в дочерние элементы
                     m_path.push_back(TrieLevelInfo(node, true));
-                    m_string.clear();
+                    bClearStr = true;
                     break;
                 }
 
                 // Переходим на уровень выше
                 m_path.pop_back();
-                m_string.clear();
+                bClearStr = true;
 
                 break;
             }
 
-        } while (!m_path.empty() && !m_path.back().node->haveValue());
+        } while (!m_path.empty() && !m_path.back().pNode->haveValue());
+
+        if (bClearStr)
+        {
+            m_string.clear();
+        }
 
         return *this;
     }
@@ -921,7 +1102,8 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     bool
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator==(const const_iterator& other) const
+    base_interator<TCharType, TValueType, KeyCharLess>::operator==(
+        const this_type& other) const
     {
         if (m_path.empty() && other.m_path.empty())
             return true;
@@ -932,22 +1114,114 @@ namespace Trie
         TrieLevelInfoVector::const_iterator itThis     = m_path.cbegin();
         TrieLevelInfoVector::const_iterator itEndThis  = m_path.cend();
         TrieLevelInfoVector::const_iterator itOther    = other.m_path.cbegin();
-        TrieLevelInfoVector::const_iterator itEndOther = other.m_path.cend();
         for (; itThis != itEndThis; ++itThis, ++itOther)
         {
-            if (itThis->node != itOther->node)
+            if (itThis->pNode != itOther->pNode)
                 return false;
         }
 
         return true;
     }
+    
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    bool
+    base_interator<TCharType, TValueType, KeyCharLess>::operator!=(
+        const this_type& other) const
+    {
+        return !operator==(other);
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator()
+    {
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(
+        const nodes_vector_type& nodes)
+        : base_type(nodes)
+    {
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(
+        const this_type& other)
+        : base_type(other)
+    {
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(
+        this_type&& other)
+        : base_type(other)
+    {
+    }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     bool
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator!=(const const_iterator& other) const
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator==(const this_type& other) const
     {
-        return !operator==(other);
+        return base_type::operator==(other);
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    bool
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator!=(const this_type& other) const
+    {
+        return base_type::operator!=(other);
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename const_iterator<TCharType, TValueType, KeyCharLess>::node_type*
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator->() const
+    {
+        return base_type::operator->();
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename const_iterator<TCharType, TValueType, KeyCharLess>::node_type*
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator*() const
+    {
+        return base_type::operator*();
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>&
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator=(const this_type& other)
+    {
+        base_type::operator=(other);
+
+        return *this;
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>&
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator=(this_type&& other)
+    {
+        base_type::operator=(std::move(other));
+
+        return *this;
+    }
+
+    //-----------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const_iterator<TCharType, TValueType, KeyCharLess>&
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator++()
+    {
+        base_type::operator++();
+
+        return *this;
     }
 
     //------------------------------------------------------------------------//
@@ -958,22 +1232,23 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    iterator<TCharType, TValueType, KeyCharLess>::iterator(const std::vector<node_type*>& nodes)
-        : const_iterator<TCharType, TValueType, KeyCharLess>(nodes)
+    iterator<TCharType, TValueType, KeyCharLess>::iterator(
+        const nodes_vector_type& nodes)
+        : base_type(nodes)
     {
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    iterator<TCharType, TValueType, KeyCharLess>::iterator(const iterator& other)
-        : const_iterator<TCharType, TValueType, KeyCharLess>(other)
+    iterator<TCharType, TValueType, KeyCharLess>::iterator(const this_type& other)
+        : base_type(other)
     {
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    iterator<TCharType, TValueType, KeyCharLess>::iterator(iterator&& other)
-        : const_iterator<TCharType, TValueType, KeyCharLess>(std::move(other))
+    iterator<TCharType, TValueType, KeyCharLess>::iterator(this_type&& other)
+        : base_type(std::move(other))
     {
     }
 
@@ -982,7 +1257,7 @@ namespace Trie
     typename iterator<TCharType, TValueType, KeyCharLess>::node_type*
     iterator<TCharType, TValueType, KeyCharLess>::operator->() const
     {
-        return const_iterator<TCharType, TValueType, KeyCharLess>::m_path.back().node;
+        return base_type::operator->();
     }
 
     //------------------------------------------------------------------------//
@@ -990,7 +1265,7 @@ namespace Trie
     typename iterator<TCharType, TValueType, KeyCharLess>::node_type*
     iterator<TCharType, TValueType, KeyCharLess>::operator*() const
     {
-        return const_iterator<TCharType, TValueType, KeyCharLess>::m_path.back().node;
+        return base_type::operator*();
     }
 
     //------------------------------------------------------------------------//
@@ -998,7 +1273,8 @@ namespace Trie
     iterator<TCharType, TValueType, KeyCharLess>&
     iterator<TCharType, TValueType, KeyCharLess>::operator=(const iterator& other)
     {
-        const_iterator::operator=(other);
+        base_type::operator=(other);
+
         return *this;
     }
 
@@ -1007,16 +1283,18 @@ namespace Trie
     iterator<TCharType, TValueType, KeyCharLess>&
     iterator<TCharType, TValueType, KeyCharLess>::operator=(iterator&& other)
     {
-        const_iterator::operator=(std::move(other));
+        base_type::operator=(std::move(other));
+
         return *this;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     bool
-    iterator<TCharType, TValueType, KeyCharLess>::operator==(const iterator& other) const
+    iterator<TCharType, TValueType, KeyCharLess>::operator==(
+        const iterator& other) const
     {
-        return const_iterator<TCharType, TValueType, KeyCharLess>::operator==(other);
+        return base_type::operator==(other);
     }
 
     //------------------------------------------------------------------------//
@@ -1024,8 +1302,9 @@ namespace Trie
     bool
     iterator<TCharType, TValueType, KeyCharLess>::operator!=(const iterator& other) const
     {
-        return !operator==(other);
+        return !base_type::operator==(other);
     }
 
     //------------------------------------------------------------------------//
-}
+
+}   // namespace Trie (Имплементация итераторов цифрового дерева)
