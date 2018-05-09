@@ -25,7 +25,9 @@ namespace Trie
     {
         bool operator()(char ch1, char ch2) const
         {
-            return tolower(ch1) < tolower(ch2);
+			char ch1l = tolower(ch1);
+			char ch2l = tolower(ch2);
+            return ch1l < ch2l;
         }
     };
 
@@ -42,7 +44,7 @@ namespace Trie
         static node_type* create(TCharType keyChar, TValueType value);
         static node_type* clone (node_type* node);
 
-        Node();
+        Node() noexcept;
         Node(TCharType keyChar);
         Node(TCharType keyChar, TValueType value);
         virtual ~Node();
@@ -71,13 +73,33 @@ namespace Trie
         void                setNext(node_type* next);
         node_type*          getNext() const;
 
+		///////////////////////////////////////////
+		// Работа с дочерним
+
+		// Установить/получить указатель на дочерний элемент дерева
+		void                setChild(node_type* child);
+		node_type*          getChildSimple() const;
+		node_type*          getChildCreate(bool& bCreated);
+
+		///////////////////////////////////////////
+		// Работа с братьями
+
         // Получить указатель на следующий элемент для указанного символа
-        /**
+        /*
          * Возращает элемент в цепочке элементов (братьев), обладающих указанным символом
          * Поиск начинается с текущего элемента
          */
         node_type*          getBrotherSimple(TCharType keyChar);
         const node_type*    getBrotherSimple(TCharType keyChar) const;
+
+        // Получить указатель на следующий элемент для указанного символа
+        /**
+         * Возращает элемент в цепочке элементов (братьев), обладающих символом
+         * большим или равным указанного
+         * Поиск начинается с текущего элемента
+         */
+        node_type*          getBrotherEqOrGreatSimple(TCharType keyChar);
+        const node_type*    getBrotherEqOrGreatSimple(TCharType keyChar) const;
 
         // Получить указатель на следующий элемент для указанного символа
         /**
@@ -88,25 +110,13 @@ namespace Trie
          */
         node_type*          getBrotherCreate(TCharType keyChar, bool& bCreated);
 
-        // Изьять указатель на следующий элемент для указанного символа
-        /**
-         * Выполянется изъятие элемента для указанного символа из цепочки элементов нашего уровня
-         * ВНИМАНИЕ: ответстенность за удаление элемента лежит на вызывающей стороне
-         */
-        node_type*          removeBrother(TCharType keyChar);
-
-        ///////////////////////////////////////////
-        // Работа с дочерним
-
-        // Установить/получить указатель на дочерний элемент дерева
-        void                setChild(node_type* child);
-        node_type*          getChildSimple() const;
-        node_type*          getChildCreate(bool& bCreated);
-
     private:
 
-        bool                isLess(TCharType ch1, TCharType ch2) const;
-        bool                isEqual(TCharType ch1, TCharType ch2) const;
+		template <typename PNodeType>
+		PNodeType           intGetBrotherSimple(PNodeType thisNode, TCharType keyChar) const;
+
+		template <typename PNodeType>
+		PNodeType           intGetBrotherEqOrGreatSimple(PNodeType thisNode, TCharType keyChar) const;
 
     private:
 
@@ -136,28 +146,48 @@ namespace Trie
         using iterator_type             = iterator<typename TCharType, typename TValueType, typename KeyCharLess>;
         using const_iterator_type       = const_iterator<typename TCharType, typename TValueType, typename KeyCharLess>;
 
-        Trie();
+        Trie() noexcept;
         ~Trie();
 
         // Добавление пары ключ/значение
         /**
          * Если ключ найден, то заменяем значение на новое.
          * Если ключ не найден, то добавляется новая пара ключ/значение
+         *
+         * @param   key - ключ для добавляемого узла
+         * @param   value - значение для добавляемого узла
+         * @return  указатель на узел, соответствующий ключу
          */
-        Node<typename TCharType, typename TValueType, typename KeyCharLess>* addKeyValue(const string_type& key, typename TValueType value);
+        node_type*          addKeyValue(const string_type& key, typename TValueType value);
 
         // Удаление заданного ключа (слова) из дерева
         /**
-         * Удаляется и ключ, и значение
+         * Удаляется ключ, значение (если есть) и все другие пары
+		 * ключ/значение, у которых ключ начинается с указанного
+         *
+         * @param   key - ключ для удаляемого элемента
+         * @return  true - если элемент по ключу был найден и удален, false - иначе
          */
-        bool removeKey(const TrieStrings::StringOfChars<TCharType>& key);
+        bool                removeKey(const TrieStrings::StringOfChars<TCharType>& key);
 
         // Поиск заданного ключа (слова) в дереве
         /**
          * В случае, если слово найдено, возвращается значение.
-         * Если слово не найдено, возвращается -1 (можно сделать любым другим способом)
+         *
+         * @param   key - искомый ключ
+         * @return  итератор для найденого узла по ключу.
+         *          Если не найдено, то будет возвращено end()
          */
         iterator_type       find(const TrieStrings::StringOfChars<TCharType>& key);
+
+        // Поиск заданного ключа (слова) в дереве
+        /**
+         * В случае, если слово найдено, возвращается значение.
+         *
+         * @param   key - искомый ключ
+         * @return  итератор для найденого узла по ключу.
+         *          Если не найдено, то будет возвращено сend()
+         */
         const_iterator_type find(const TrieStrings::StringOfChars<TCharType>& key) const;
 
         // Также, необходимо предоставить пример перебора всех значений для всех
@@ -167,21 +197,44 @@ namespace Trie
         //      C каждым словом связано число.
         //      Нужно получить все числа для слов больше бета - т.е. найти числа,
         //      связанные со словами гамма, дельта, эпсилон. 
+        // Поиск узла дерева, ключ которого больше или равен указанному
+        
+        /**
+         * Метод возвращает итератор для элемента дерева, ключ которого больше
+         * или равен указанному ключу.
+         *
+         * @param key - ключ
+         * @return итератор для итератор для элемента дерева, ключ которого больше
+         *         или равен указанному ключу.
+         *         Если подходящих элементов не найдено, будет
+         *         возвращен итератор cend()
+         */
+        iterator_type lower_bound(const TrieStrings::StringOfChars<TCharType>& key);
+
+        /**
+         * Метод возвращает итератор для элемента дерева, ключ которого больше
+         * или равен указанному ключу.
+         *
+         * @param key - ключ
+         * @return итератор для итератор для элемента дерева, ключ которого больше
+         *         или равен указанному ключу.
+         *         Если подходящих элементов не найдено, будет
+         *         возвращен итератор cend()
+         */
         const_iterator_type lower_bound(const TrieStrings::StringOfChars<TCharType>& key) const;
 
+        iterator_type       begin();
+        iterator_type       end();
         const_iterator_type cbegin() const;
         const_iterator_type cend()   const;
 
     private:
 
-        iterator_type       begin() const;
-        iterator_type       end()   const;
-
         // Создание и получение корневого узла
         node_type*                          intGetRoot() const;
 
         // Удаление корневого узла
-        void                                intResetRoot();
+        void                                intResetRoot(node_type* newRoot);
 
         // Получить узел для указанного значения ключа
         iterator_type                       intGetNodeSimple(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength);
@@ -194,7 +247,17 @@ namespace Trie
         // Получить путь к узлу дереву по ключу с созданием недостающих узлов
         nodes_vector_type                   intGetNodePathCreate(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength);
 
-    private:
+		// Получить путь к узлу дереву по ключу
+		/*
+		 * Метод возвращает путь к узлу, ключ которого больше или равен соответствующей
+		 * части переданного ключа
+		 */
+		nodes_vector_type                   intGetNodePathGreatEq(const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength) const;
+
+		template <typename IteratorType>
+		IteratorType intGetLowerBound(const TrieStrings::StringOfChars<TCharType>& key) const;
+	
+	private:
 
         // Корень цифрового дерева
         node_type* m_rootNode = Node<TCharType, TValueType, KeyCharLess>::create();
@@ -213,10 +276,10 @@ namespace Trie
         using node_type         = Node<typename TCharType, typename TValueType, typename KeyCharLess>;
         using nodes_vector_type = std::vector<node_type*>;
 
-        base_interator();
+        base_interator() noexcept;
         base_interator(const nodes_vector_type& nodes);
         base_interator(const this_type& other);
-        base_interator(this_type&& other);
+        base_interator(this_type&& other) noexcept;
 
         bool                operator==  (const this_type& other) const;
         bool                operator!=  (const this_type& other) const;
@@ -224,7 +287,7 @@ namespace Trie
         node_type*          operator*   ()                       const;
 
         this_type&          operator=   (const this_type& other);
-        this_type&          operator=   (this_type&& other);
+        this_type&          operator=   (this_type&& other) noexcept;
         this_type&          operator++  ();
 
         // Получение полного ключ, которому соответствует узел
@@ -261,10 +324,10 @@ namespace Trie
         using node_type         = typename base_iterator_type::node_type;
         using nodes_vector_type = typename base_iterator_type::nodes_vector_type;
 
-        const_iterator();
+        const_iterator() noexcept;
         const_iterator(const nodes_vector_type& nodes);
         const_iterator(const this_type& other);
-        const_iterator(this_type&& other);
+        const_iterator(this_type&& other) noexcept;
 
         bool                operator==  (const this_type& other) const;
         bool                operator!=  (const this_type& other) const;
@@ -272,7 +335,7 @@ namespace Trie
         node_type*          operator*   ()                       const;
 
         this_type&          operator=   (const this_type& other);
-        this_type&          operator=   (this_type&& other);
+        this_type&          operator=   (this_type&& other) noexcept;
         this_type&          operator++  ();
     };
 
@@ -290,10 +353,10 @@ namespace Trie
         using node_type         = typename base_iterator_type::node_type;
         using nodes_vector_type = typename base_iterator_type::nodes_vector_type;
 
-        iterator();
+        iterator() noexcept;
         iterator(const nodes_vector_type& nodes);
         iterator(const this_type& other);
-        iterator(this_type&& other);
+        iterator(this_type&& other) noexcept;
 
         bool                operator==  (const this_type& other) const;
         bool                operator!=  (const this_type& other) const;
@@ -301,14 +364,30 @@ namespace Trie
         node_type*          operator*   ()                       const;
 
         this_type&          operator=   (const this_type& other);
-        this_type&          operator=   (this_type&& other);
+        this_type&          operator=   (this_type&& other) noexcept;
         this_type&          operator++  ();
     }; 
+
 }   // namespace Trie
 
 // Имплементация методов узла цифрового дерева
 namespace Trie
 {
+	//------------------------------------------------------------------------//
+	template<typename KeyCharLess, typename TCharType>
+	bool is_key_less(TCharType ch1, TCharType ch2)
+	{
+		return ch1 == ch2 ? false : KeyCharLess()(ch1, ch2);
+	}
+
+	//------------------------------------------------------------------------//
+	template<typename KeyCharLess, typename TCharType>
+	bool is_key_eq(TCharType ch1, TCharType ch2)
+	{
+		KeyCharLess less;
+		return ch1 == ch2 ? true : (!less(ch1, ch2) && !less(ch2, ch1));
+	}
+
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
@@ -347,7 +426,7 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    Node<TCharType, TValueType, KeyCharLess>::Node()
+    Node<TCharType, TValueType, KeyCharLess>::Node() noexcept
     {
     }
 
@@ -441,38 +520,7 @@ namespace Trie
     typename Node<TCharType, TValueType, KeyCharLess>::node_type*
     Node<TCharType, TValueType, KeyCharLess>::getBrotherSimple(TCharType keyChar)
     {
-        node_type* destNode = nullptr;
-
-        if (isLess(keyChar, getKeyChar()))
-        {
-            // Символ меньше символа в текущем элементе - нужного элемента нет
-        }
-
-        // Если символ из ключа хранится в текущем элементе - вернем текущий элемент
-        else if (isEqual(keyChar, getKeyChar()))
-        {
-            return this;
-        }
-        else
-        {
-            node_type* nodePrev = this;
-            node_type* node = getNext();
-            while (node && isLess(node->getKeyChar(), keyChar))
-            {
-                nodePrev = node;
-                node = node->getNext();
-            }
-
-            if (node)
-            {
-                if (isEqual(node->getKeyChar(), keyChar))
-                {
-                    destNode = node;
-                }
-            }
-        }
-
-        return destNode;
+		return intGetBrotherSimple(this, keyChar);
     }
 
     //------------------------------------------------------------------------//
@@ -480,38 +528,23 @@ namespace Trie
     const typename Node<TCharType, TValueType, KeyCharLess>::node_type*
     Node<TCharType, TValueType, KeyCharLess>::getBrotherSimple(TCharType keyChar) const
     {
-        const node_type* destNode = nullptr;
+		return intGetBrotherSimple(this, keyChar);
+    }
 
-        if (isLess(keyChar, getKeyChar()))
-        {
-            // Символ меньше символа в текущем элементе - нужного элемента нет
-        }
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Node<TCharType, TValueType, KeyCharLess>::node_type*
+    Node<TCharType, TValueType, KeyCharLess>::getBrotherEqOrGreatSimple(TCharType keyChar)
+    {
+		return intGetBrotherEqOrGreatSimple(this, keyChar);
+    }
 
-        // Если символ из ключа хранится в текущем элементе - вернем текущий элемент
-        else if (isEqual(keyChar, getKeyChar()))
-        {
-            return this;
-        }
-        else
-        {
-            const node_type* nodePrev = this;
-            const node_type* node = getNext();
-            while (node && isLess(node->getKeyChar(), keyChar))
-            {
-                nodePrev = node;
-                node = node->getNext();
-            }
-
-            if (node)
-            {
-                if (isEqual(node->getKeyChar(), keyChar))
-                {
-                    destNode = node;
-                }
-            }
-        }
-
-        return destNode;
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    const typename Node<TCharType, TValueType, KeyCharLess>::node_type*
+    Node<TCharType, TValueType, KeyCharLess>::getBrotherEqOrGreatSimple(TCharType keyChar) const
+    {
+		return intGetBrotherEqOrGreatSimple(this, keyChar);
     }
 
     //------------------------------------------------------------------------//
@@ -522,7 +555,7 @@ namespace Trie
         node_type* destNode = nullptr;
         bCreated = false;
 
-        if (isLess(keyChar, getKeyChar()))
+        if (is_key_less<KeyCharLess>(keyChar, getKeyChar()))
         {
             node_type* newNode = Node::clone(this);
             setNext(newNode);
@@ -537,7 +570,7 @@ namespace Trie
         }
 
         // Если символ из ключа хранится в текущем элементе - вернем текущий элемент
-        else if (isEqual(keyChar, getKeyChar()))
+        else if (is_key_eq<KeyCharLess>(keyChar, getKeyChar()))
         {
             return this;
         }
@@ -545,7 +578,7 @@ namespace Trie
         {
             node_type* nodePrev = this;
             node_type* node = getNext();
-            while (node && isLess(node->getKeyChar(), keyChar))
+            while (node && is_key_less<KeyCharLess>(node->getKeyChar(), keyChar))
             {
                 nodePrev = node;
                 node = node->getNext();
@@ -553,7 +586,7 @@ namespace Trie
 
             if (node)
             {
-                if (isEqual(node->getKeyChar(), keyChar))
+                if (is_key_eq<KeyCharLess>(node->getKeyChar(), keyChar))
                 {
                     destNode = node;
                 }
@@ -581,45 +614,6 @@ namespace Trie
         }
 
         return destNode;
-    }
-
-    //------------------------------------------------------------------------//
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    typename Node<TCharType, TValueType, KeyCharLess>::node_type*
-        Node<TCharType, TValueType, KeyCharLess>::removeBrother(TCharType keyChar)
-    {
-        node_type* result = nullptr;
-
-        if (m_pChild && isEqual(m_pChild->getKeyChar(), keyChar))
-        {
-            result = m_pChild;
-            m_pChild = m_pNext;
-            m_pNext = m_pNext ? m_pNext->getNext() : nullptr;
-        }
-        else
-        {
-            node_type* nodePrev = nullptr;
-            for (node_type* node = m_pNext; node != nullptr; node = node->getNext())
-            {
-                if (isEqual(node->getKeyChar(), keyChar))
-                {
-                    result = node;
-
-                    if (nodePrev)
-                        nodePrev->setNext(result->getNext());
-                    else
-                        m_pNext = result->getNext();
-
-                    result->setNext(nullptr);
-
-                    break;
-                }
-
-                nodePrev = node;
-            }
-        }
-
-        return result;
     }
 
     //------------------------------------------------------------------------//
@@ -655,24 +649,81 @@ namespace Trie
         return m_pChild;
     }
 
-    //------------------------------------------------------------------------//
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    inline
-    bool
-    Node<TCharType, TValueType, KeyCharLess>::isLess(TCharType ch1, TCharType ch2) const
-    {
-        return ch1 == ch2 ? false : KeyCharLess()(ch1, ch2);
-    }
+	//------------------------------------------------------------------------//
+	template<typename TCharType, typename TValueType, typename KeyCharLess>
+	template<typename PNodeType>
+	PNodeType
+	Node<TCharType, TValueType, KeyCharLess>::intGetBrotherSimple(PNodeType thisNode, TCharType keyChar) const
+	{
+		PNodeType destNode = nullptr;
 
-    //------------------------------------------------------------------------//
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    inline
-    bool
-    Node<TCharType, TValueType, KeyCharLess>::isEqual(TCharType ch1, TCharType ch2) const
-    {
-        KeyCharLess less;
-        return ch1 == ch2 ? true : (!less(ch1, ch2) && !less(ch2, ch1));
-    }
+		if (is_key_less<KeyCharLess>(keyChar, getKeyChar()))
+		{
+			// Символ меньше символа в текущем элементе - нужного элемента нет
+		}
+
+		// Если символ из ключа хранится в текущем элементе - вернем текущий элемент
+		else if (is_key_eq<KeyCharLess>(keyChar, getKeyChar()))
+		{
+			return thisNode;
+		}
+		else
+		{
+			PNodeType nodePrev = thisNode;
+			PNodeType node = getNext();
+			while (node && is_key_less<KeyCharLess>(node->getKeyChar(), keyChar))
+			{
+				nodePrev = node;
+				node = node->getNext();
+			}
+
+			if (node)
+			{
+				if (is_key_eq<KeyCharLess>(node->getKeyChar(), keyChar))
+				{
+					destNode = node;
+				}
+			}
+		}
+
+		return destNode;
+	}
+
+	//------------------------------------------------------------------------//
+	template<typename TCharType, typename TValueType, typename KeyCharLess>
+	template<typename PNodeType>
+	PNodeType Node<TCharType, TValueType, KeyCharLess>::intGetBrotherEqOrGreatSimple(
+		PNodeType thisNode, TCharType keyChar) const
+	{
+		PNodeType destNode = nullptr;
+
+		if (is_key_less<KeyCharLess>(keyChar, getKeyChar())
+			|| is_key_eq<KeyCharLess>(keyChar, getKeyChar()))
+		{
+			return thisNode;
+		}
+		else
+		{
+			PNodeType nodePrev = thisNode;
+			PNodeType node = getNext();
+			while (node && is_key_less<KeyCharLess>(node->getKeyChar(), keyChar))
+			{
+				nodePrev = node;
+				node = node->getNext();
+			}
+
+			if (node)
+			{
+				if (is_key_less<KeyCharLess>(keyChar, node->getKeyChar())
+					|| is_key_eq<KeyCharLess>(keyChar, node->getKeyChar()))
+				{
+					destNode = node;
+				}
+			}
+		}
+
+		return destNode;
+	}
 
 }   // namespace Trie (Имплементация методов узла цифрового дерева)
 
@@ -681,7 +732,7 @@ namespace Trie
 {
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    Trie<TCharType, TValueType, KeyCharLess>::Trie()
+    Trie<TCharType, TValueType, KeyCharLess>::Trie() noexcept
     {
     }
 
@@ -689,12 +740,12 @@ namespace Trie
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     Trie<TCharType, TValueType, KeyCharLess>::~Trie()
     {
-        intResetRoot();
+        intResetRoot(nullptr);
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    Node<TCharType, TValueType, KeyCharLess>*
+    typename Trie<TCharType, TValueType, KeyCharLess>::node_type*
     Trie<TCharType, TValueType, KeyCharLess>::addKeyValue(
         const string_type& key, TValueType value)
     {
@@ -702,7 +753,7 @@ namespace Trie
         iterator_type it = intGetNodeCreate(key, key.length());
         assert(it != end());
 
-        Node<TCharType, TValueType, KeyCharLess>* result = *it;
+        node_type* result = *it;
 
         // Установим значение
         result->setValue(value);
@@ -719,23 +770,55 @@ namespace Trie
 
         if (0 == key.length())
         {
-            intResetRoot();
+			// Разрушим старое дерево и создадим новое дерево
+            intResetRoot(Node<TCharType, TValueType, KeyCharLess>::create());
             bResult = true;
         }
 
-        // Получим узел для указанного пути без последнего символа
         else
         {
-            const size_t keyLenght = key.length();
-            iterator_type it = intGetNodeSimple(key, keyLenght);
-            if (it != end())
-            {
-                if (node_type* result = (*it)->removeBrother(key.at(keyLenght - 1)))
-                {
-                    delete result;
-                    bResult = true;
-                }
-            }
+			auto nodePath = intGetNodePathSimple(key, key.length());
+			if (!nodePath.empty())
+			{
+				auto nodePathBackIt = nodePath.rbegin();
+
+				// Определим узел для удаления
+				node_type* nodeToRemove = *(nodePathBackIt++);
+
+				// Определим родитель узла для удаления
+				node_type* parentNode = nodePathBackIt != nodePath.rend() ? *(nodePathBackIt++) : intGetRoot();
+
+				// На удаляемый узел ссылается его родитель?
+				if (parentNode->getChildSimple() == nodeToRemove)
+				{
+					parentNode->setChild(nodeToRemove->getNext());
+					nodeToRemove->setNext(nullptr);
+
+					bResult = true;
+				}
+
+				// Удаляемый узел просто в цепочке узлов
+				else
+				{
+					node_type* nodePrev = nullptr;
+					for (node_type* node = parentNode->getChildSimple(); node != nullptr; node = node->getNext())
+					{
+						if (node == nodeToRemove)
+						{
+							nodePrev->setNext(nodeToRemove->getNext());
+							nodeToRemove->setNext(nullptr);
+
+							bResult = true;
+
+							break;
+						}
+
+						nodePrev = node;
+					}
+				}
+
+				delete nodeToRemove;
+			}
         }
 
         return bResult;
@@ -759,17 +842,37 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
+    typename Trie<TCharType, TValueType, KeyCharLess>::iterator_type
+    Trie<TCharType, TValueType, KeyCharLess>::lower_bound(const TrieStrings::StringOfChars<TCharType>& key)
+    {
+		return intGetLowerBound<iterator_type>(key);
+	}
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Trie<TCharType, TValueType, KeyCharLess>::const_iterator_type
     Trie<TCharType, TValueType, KeyCharLess>::lower_bound(const TrieStrings::StringOfChars<TCharType>& key) const
     {
-        auto it = intGetNodeSimple(key, key.length());
-        if (it != end())
-        {
-            ++it;
-        }
-
-        return it;
+		return intGetLowerBound<const_iterator_type>(key);
     }
+
+	//------------------------------------------------------------------------//
+	template<typename TCharType, typename TValueType, typename KeyCharLess>
+	template <typename IteratorType>
+	IteratorType
+	Trie<TCharType, TValueType, KeyCharLess>::intGetLowerBound(const TrieStrings::StringOfChars<TCharType>& key) const
+	{
+		auto nodePath = intGetNodePathGreatEq(key, key.length());
+		IteratorType it(nodePath);
+
+		// Если последний элемент не указывает на значение - перейдем к следующему элементу
+		if (!nodePath.empty() && !nodePath.back()->haveValue())
+		{
+			++it;
+		}
+
+		return it;
+	}
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
@@ -798,13 +901,13 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Trie<TCharType, TValueType, KeyCharLess>::iterator_type
-    Trie<TCharType, TValueType, KeyCharLess>::begin() const
+    Trie<TCharType, TValueType, KeyCharLess>::begin()
     {
         iterator_type it;
 
         if (node_type* firstChild = intGetRoot()->getChildSimple())
         {
-            it = iterator_type({ firstChild, true });
+            it = iterator_type({ firstChild });
             ++it;
         }
 
@@ -814,7 +917,7 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     typename Trie<TCharType, TValueType, KeyCharLess>::iterator_type
-    Trie<TCharType, TValueType, KeyCharLess>::end() const
+    Trie<TCharType, TValueType, KeyCharLess>::end()
     {
         return iterator_type();
     }
@@ -830,10 +933,10 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     void
-    Trie<TCharType, TValueType, KeyCharLess>::intResetRoot()
+    Trie<TCharType, TValueType, KeyCharLess>::intResetRoot(node_type* newRoot)
     {
         delete m_rootNode;
-        m_rootNode = nullptr;
+        m_rootNode = newRoot;
     }
 
     //------------------------------------------------------------------------//
@@ -905,7 +1008,7 @@ namespace Trie
         nodes_vector_type path;
         path.reserve(keyLength);
 
-        Node<TCharType, TValueType, KeyCharLess>* currentNode = intGetRoot();
+        node_type* currentNode = intGetRoot();
         for (size_t keyCharIndex = 0; keyCharIndex < keyLength; ++keyCharIndex)
         {
             const TCharType keyChar = key.at(keyCharIndex);
@@ -941,6 +1044,43 @@ namespace Trie
         return path;
     }
 
+	//------------------------------------------------------------------------//
+	template<typename TCharType, typename TValueType, typename KeyCharLess>
+	typename Trie<TCharType, TValueType, KeyCharLess>::nodes_vector_type
+	Trie<TCharType, TValueType, KeyCharLess>::intGetNodePathGreatEq(
+		const TrieStrings::StringOfChars<TCharType>& key, size_t keyLength) const
+	{
+		nodes_vector_type path;
+		path.reserve(keyLength);
+
+		node_type* currentNode = intGetRoot();
+		for (size_t keyCharIndex = 0; keyCharIndex < keyLength; ++keyCharIndex)
+		{
+			const TCharType keyChar = key.at(keyCharIndex);
+
+			// Переходим на вложенный уровень
+			currentNode = currentNode->getChildSimple();
+			if (!currentNode)
+				break;
+
+			// Получим на вложенном уровне элемент для текущего символа ключа
+			currentNode = currentNode->getBrotherEqOrGreatSimple(keyChar);
+			if (!currentNode)
+				break;
+
+			path.push_back(currentNode);
+
+			// Если символ полученного узла не в точности совпадает, дальше по ключу уточнять не нужно
+			if (!is_key_eq<KeyCharLess>(keyChar, currentNode->getKeyChar()))
+				break;
+		}
+
+		if (!currentNode)
+			path.clear();
+
+		return path;
+	}
+
 }   // namespace Trie (Имплементация методов цифрового дерева)
 
 // Имплементация итераторов цифрового дерева
@@ -948,7 +1088,7 @@ namespace Trie
 {
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    base_interator<TCharType, TValueType, KeyCharLess>::base_interator()
+    base_interator<TCharType, TValueType, KeyCharLess>::base_interator() noexcept
     {
     }
 
@@ -982,7 +1122,7 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    base_interator<TCharType, TValueType, KeyCharLess>::base_interator(this_type&& other)
+    base_interator<TCharType, TValueType, KeyCharLess>::base_interator(this_type&& other) noexcept
         : m_path    (std::move(other.m_path)),
           m_string  (std::move(other.m_string))
     {
@@ -1036,7 +1176,7 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     base_interator<TCharType, TValueType, KeyCharLess>&
-    base_interator<TCharType, TValueType, KeyCharLess>::operator=(this_type&& other)
+    base_interator<TCharType, TValueType, KeyCharLess>::operator=(this_type&& other) noexcept
     {
         m_path   = std::move(other.m_path);
         m_string = std::move(other.m_string);
@@ -1046,7 +1186,7 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    typename base_interator<TCharType, TValueType, KeyCharLess>::this_type&
+    base_interator<TCharType, TValueType, KeyCharLess>&
     base_interator<TCharType, TValueType, KeyCharLess>::operator++()
     {
         if (m_path.empty())
@@ -1111,9 +1251,9 @@ namespace Trie
         if (m_path.size() != other.m_path.size())
             return false;
 
-        TrieLevelInfoVector::const_iterator itThis     = m_path.cbegin();
-        TrieLevelInfoVector::const_iterator itEndThis  = m_path.cend();
-        TrieLevelInfoVector::const_iterator itOther    = other.m_path.cbegin();
+        auto itThis     = m_path.cbegin();
+		auto itEndThis  = m_path.cend();
+		auto itOther    = other.m_path.cbegin();
         for (; itThis != itEndThis; ++itThis, ++itOther)
         {
             if (itThis->pNode != itOther->pNode)
@@ -1134,7 +1274,7 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator()
+    const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator() noexcept
     {
     }
 
@@ -1157,7 +1297,7 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     const_iterator<TCharType, TValueType, KeyCharLess>::const_iterator(
-        this_type&& other)
+        this_type&& other) noexcept
         : base_type(other)
     {
     }
@@ -1207,7 +1347,7 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     const_iterator<TCharType, TValueType, KeyCharLess>&
-    const_iterator<TCharType, TValueType, KeyCharLess>::operator=(this_type&& other)
+    const_iterator<TCharType, TValueType, KeyCharLess>::operator=(this_type&& other) noexcept
     {
         base_type::operator=(std::move(other));
 
@@ -1226,7 +1366,7 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    iterator<TCharType, TValueType, KeyCharLess>::iterator()
+    iterator<TCharType, TValueType, KeyCharLess>::iterator() noexcept
     {
     }
 
@@ -1247,9 +1387,25 @@ namespace Trie
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    iterator<TCharType, TValueType, KeyCharLess>::iterator(this_type&& other)
+    iterator<TCharType, TValueType, KeyCharLess>::iterator(this_type&& other) noexcept
         : base_type(std::move(other))
     {
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    bool
+    iterator<TCharType, TValueType, KeyCharLess>::operator==(const this_type& other) const
+    {
+        return base_type::operator==(other);
+    }
+
+    //------------------------------------------------------------------------//
+    template<typename TCharType, typename TValueType, typename KeyCharLess>
+    bool
+    iterator<TCharType, TValueType, KeyCharLess>::operator!=(const this_type& other) const
+    {
+        return base_type::operator!=(other);
     }
 
     //------------------------------------------------------------------------//
@@ -1271,7 +1427,7 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     iterator<TCharType, TValueType, KeyCharLess>&
-    iterator<TCharType, TValueType, KeyCharLess>::operator=(const iterator& other)
+    iterator<TCharType, TValueType, KeyCharLess>::operator=(const this_type& other)
     {
         base_type::operator=(other);
 
@@ -1281,28 +1437,21 @@ namespace Trie
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
     iterator<TCharType, TValueType, KeyCharLess>&
-    iterator<TCharType, TValueType, KeyCharLess>::operator=(iterator&& other)
+    iterator<TCharType, TValueType, KeyCharLess>::operator++()
     {
-        base_type::operator=(std::move(other));
+        base_type::operator++();
 
         return *this;
     }
 
     //------------------------------------------------------------------------//
     template<typename TCharType, typename TValueType, typename KeyCharLess>
-    bool
-    iterator<TCharType, TValueType, KeyCharLess>::operator==(
-        const iterator& other) const
+    iterator<TCharType, TValueType, KeyCharLess>&
+    iterator<TCharType, TValueType, KeyCharLess>::operator=(iterator&& other) noexcept
     {
-        return base_type::operator==(other);
-    }
+        base_type::operator=(std::move(other));
 
-    //------------------------------------------------------------------------//
-    template<typename TCharType, typename TValueType, typename KeyCharLess>
-    bool
-    iterator<TCharType, TValueType, KeyCharLess>::operator!=(const iterator& other) const
-    {
-        return !base_type::operator==(other);
+        return *this;
     }
 
     //------------------------------------------------------------------------//
