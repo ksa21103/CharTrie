@@ -36,11 +36,11 @@ namespace TrieStrings
 
         StringOfCharsZeroEnd(const TCharType* zeroEndBuf = nullptr);
         StringOfCharsZeroEnd(const StringOfCharsZeroEnd& other);
-        StringOfCharsZeroEnd(StringOfCharsZeroEnd&& other);
+        StringOfCharsZeroEnd(StringOfCharsZeroEnd&& other) noexcept;
         virtual ~StringOfCharsZeroEnd();
 
         StringOfCharsZeroEnd<TCharType>& operator=(const StringOfChars<TCharType>& other);
-        StringOfCharsZeroEnd<TCharType>& operator=(StringOfCharsZeroEnd<TCharType>&& other);
+        StringOfCharsZeroEnd<TCharType>& operator=(StringOfCharsZeroEnd<TCharType>&& other) noexcept;
 
         virtual void clear()                                      override;
         virtual void reserve(size_t size)                         override;
@@ -71,11 +71,11 @@ namespace TrieStrings
         StringOfCharsFixedLen();
         StringOfCharsFixedLen(const TCharType* buf, size_t charsCount);
         StringOfCharsFixedLen(const StringOfCharsFixedLen& other);
-        StringOfCharsFixedLen(StringOfCharsFixedLen&& other);
+        StringOfCharsFixedLen(StringOfCharsFixedLen&& other) noexcept;
         virtual ~StringOfCharsFixedLen();
 
         StringOfCharsFixedLen<TCharType>& operator=(const StringOfChars<TCharType>& other);
-        StringOfCharsFixedLen<TCharType>& operator=(StringOfCharsFixedLen<TCharType>&& other);
+        StringOfCharsFixedLen<TCharType>& operator=(StringOfCharsFixedLen<TCharType>&& other) noexcept;
 
         virtual void clear()                                      override;
         virtual void reserve(size_t size)                         override;
@@ -132,7 +132,7 @@ namespace TrieStrings
 
     //------------------------------------------------------------------------//
     template<typename TCharType>
-    StringOfCharsZeroEnd<TCharType>::StringOfCharsZeroEnd(StringOfCharsZeroEnd&& other)
+    StringOfCharsZeroEnd<TCharType>::StringOfCharsZeroEnd(StringOfCharsZeroEnd&& other) noexcept
     {
         m_buf = std::move(other.m_buf);
     }
@@ -154,7 +154,7 @@ namespace TrieStrings
     //------------------------------------------------------------------------//
     template<typename TCharType>
     StringOfCharsZeroEnd<TCharType>&
-    StringOfCharsZeroEnd<TCharType>::operator=(StringOfCharsZeroEnd<TCharType>&& other)
+    StringOfCharsZeroEnd<TCharType>::operator=(StringOfCharsZeroEnd<TCharType>&& other) noexcept
     {
         m_buf = std::move(other.m_buf);
 
@@ -268,7 +268,7 @@ namespace TrieStrings
 
     //------------------------------------------------------------------------//
     template<typename TCharType>
-    StringOfCharsFixedLen<TCharType>::StringOfCharsFixedLen(StringOfCharsFixedLen&& other)
+    StringOfCharsFixedLen<TCharType>::StringOfCharsFixedLen(StringOfCharsFixedLen&& other) noexcept
     {
         m_buf = std::move(other.m_buf);
     }
@@ -292,7 +292,7 @@ namespace TrieStrings
     //------------------------------------------------------------------------//
     template<typename TCharType>
     StringOfCharsFixedLen<TCharType>&
-    StringOfCharsFixedLen<TCharType>::operator=(StringOfCharsFixedLen<TCharType>&& other)
+    StringOfCharsFixedLen<TCharType>::operator=(StringOfCharsFixedLen<TCharType>&& other) noexcept
     {
         m_buf = std::move(other.m_buf);
 
